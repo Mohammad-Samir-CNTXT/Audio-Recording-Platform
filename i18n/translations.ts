@@ -1,3 +1,4 @@
+
 export const translations = {
     // App.tsx & General
     appTitle: {
@@ -141,6 +142,10 @@ export const translations = {
     statusParagraphsError: {
         ar: "فشل تحميل الفقرات.",
         en: "Failed to load paragraphs.",
+    },
+    statusLoadingParagraphs: {
+        ar: "جاري تحميل الفقرات...",
+        en: "Loading paragraphs...",
     },
     statusReRecord: {
         ar: "الرجاء التسجيل مرة أخرى.",
