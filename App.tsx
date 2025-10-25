@@ -1,6 +1,6 @@
 
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { SpeakerInfo, RecordingMetadata, ReviewableRecording } from './types';
 import { convertToWav, blobToDataURL } from './services/audioService';
 import SpeakerForm from './components/SpeakerForm';
@@ -52,12 +52,18 @@ const App: React.FC = () => {
     const [recordingsCount, setRecordingsCount] = useState(0);
     const [activeTab, setActiveTab] = useState<'record' | 'review'>('record');
     const [recordingsForReview, setRecordingsForReview] = useState<ReviewableRecording[]>([]);
+    const [acceptedTranscripts, setAcceptedTranscripts] = useState<string[]>([]);
 
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const streamRef = useRef<MediaStream | null>(null);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    
+    const availableParagraphs = useMemo(() => {
+        return paragraphs.filter(p => !acceptedTranscripts.includes(p.trim()));
+    }, [paragraphs, acceptedTranscripts]);
+
 
     useEffect(() => {
         document.title = t('appTitle');
@@ -76,12 +82,14 @@ const App: React.FC = () => {
         const userData = allUserData[email] || {
             recordingsCount: 0,
             speakerInfo: { id: '', placeOfBirth: '', gender: 'Male', age: '' },
-            recordings: []
+            recordings: [],
+            acceptedTranscripts: []
         };
 
         setRecordingsCount(userData.recordingsCount);
         setSpeakerInfo(userData.speakerInfo);
         setRecordingsForReview(userData.recordings);
+        setAcceptedTranscripts(userData.acceptedTranscripts || []);
         setCurrentUserEmail(email);
         localStorage.setItem('currentUserEmail', email);
         resetParagraphs();
@@ -106,13 +114,14 @@ const App: React.FC = () => {
                     ...currentUserData,
                     recordingsCount: recordingsCount,
                     speakerInfo: speakerInfo,
-                    recordings: recordingsForReview
+                    recordings: recordingsForReview,
+                    acceptedTranscripts: acceptedTranscripts
                 }
             };
 
             localStorage.setItem('userData', JSON.stringify(updatedData));
         }
-    }, [recordingsCount, speakerInfo, currentUserEmail, recordingsForReview]);
+    }, [recordingsCount, speakerInfo, currentUserEmail, recordingsForReview, acceptedTranscripts]);
 
     const loadParagraphs = useCallback(async (email: string) => {
         if (allParagraphsLoaded || isLoadingParagraphs) return;
@@ -127,19 +136,20 @@ const App: React.FC = () => {
             const response = await fetch(filePath);
             if (response.status === 404) {
                 setAllParagraphsLoaded(true);
-                if (paragraphFileIndex.current === 1 && paragraphs.length === 0) {
-                     console.error(`Initial paragraph file not found for user ${username}.`);
-                     setStatus({ message: 'statusParagraphsError', type: 'error' });
-                } else {
-                     setStatus({ message: '', type: 'info' });
-                }
+                setStatus({ message: '', type: 'info' }); // Clear loading message
                 return;
             }
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const newParagraphs: string[] = await response.json();
-            setParagraphs(prev => [...prev, ...newParagraphs]);
+            
+            setParagraphs(prev => {
+                const existing = new Set(prev);
+                const uniqueNew = newParagraphs.filter(p => !existing.has(p));
+                return [...prev, ...uniqueNew];
+            });
+
             paragraphFileIndex.current += 1;
             setStatus({ message: '', type: 'info' });
         } catch (error) {
@@ -148,13 +158,31 @@ const App: React.FC = () => {
         } finally {
             setIsLoadingParagraphs(false);
         }
-    }, [allParagraphsLoaded, isLoadingParagraphs, paragraphs.length]);
+    }, [allParagraphsLoaded, isLoadingParagraphs]);
 
     useEffect(() => {
         if(currentUserEmail && paragraphs.length === 0 && !isLoadingParagraphs && !allParagraphsLoaded){
             loadParagraphs(currentUserEmail);
         }
-    }, [currentUserEmail, loadParagraphs, paragraphs.length, isLoadingParagraphs, allParagraphsLoaded]);
+    }, [currentUserEmail, paragraphs.length, isLoadingParagraphs, allParagraphsLoaded, loadParagraphs]);
+
+    useEffect(() => {
+        if (currentUserEmail && !isLoadingParagraphs && !allParagraphsLoaded && availableParagraphs.length === 0 && paragraphs.length > 0) {
+            loadParagraphs(currentUserEmail);
+        }
+    }, [currentUserEmail, isLoadingParagraphs, allParagraphsLoaded, availableParagraphs.length, paragraphs.length, loadParagraphs]);
+
+    useEffect(() => {
+        if (allParagraphsLoaded && availableParagraphs.length === 0) {
+            setStatus({ message: 'statusNoNewParagraphs', type: 'info' });
+        }
+    }, [allParagraphsLoaded, availableParagraphs.length]);
+
+    useEffect(() => {
+        if (paragraphIndex >= availableParagraphs.length) {
+            setParagraphIndex(0);
+        }
+    }, [availableParagraphs.length, paragraphIndex]);
 
 
     useEffect(() => {
@@ -176,6 +204,7 @@ const App: React.FC = () => {
         setRecordingsCount(0);
         setSpeakerInfo({ id: '', placeOfBirth: '', gender: 'Male', age: '' });
         setRecordingsForReview([]);
+        setAcceptedTranscripts([]);
         setMetadata(null);
         setAudioUrl(null);
         setMetadataUrl(null);
@@ -224,7 +253,7 @@ const App: React.FC = () => {
                         channels: "Mono",
                         durationSeconds: parseFloat(duration.toFixed(2))
                     },
-                    transcript: paragraphs[paragraphIndex].trim()
+                    transcript: availableParagraphs[paragraphIndex].trim()
                 };
 
                 const audioDataUrl = await blobToDataURL(wavBlob);
@@ -304,24 +333,23 @@ const App: React.FC = () => {
             console.error('Error accessing microphone:', error);
             setStatus({ message: 'statusMicError', type: 'error' });
         }
-    }, [speakerInfo, paragraphIndex, t, handleStopRecording, paragraphs]);
+    }, [speakerInfo, t, handleStopRecording, processRecording]);
 
     const handleLoadNextParagraph = useCallback(() => {
-        if (paragraphs.length === 0 || !currentUserEmail) return;
+        if (availableParagraphs.length === 0 || !currentUserEmail) return;
     
         const nextIndex = paragraphIndex + 1;
     
-        if (nextIndex >= paragraphs.length) {
+        if (nextIndex >= availableParagraphs.length) {
             if (allParagraphsLoaded) {
-                 if (paragraphs.length > 0) setParagraphIndex(0); // Loop back if all loaded and list is not empty
+                 if (availableParagraphs.length > 0) setParagraphIndex(0); // Loop back if all loaded and list is not empty
             }
-            // else: wait for more paragraphs to load. The button should be disabled anyway.
         } else {
             setParagraphIndex(nextIndex);
         }
     
         // Pre-fetch next chunk if we're getting close to the end
-        if (!isLoadingParagraphs && !allParagraphsLoaded && nextIndex >= paragraphs.length - 5) {
+        if (!isLoadingParagraphs && !allParagraphsLoaded && nextIndex >= availableParagraphs.length - 5) {
             loadParagraphs(currentUserEmail);
         }
     
@@ -329,7 +357,7 @@ const App: React.FC = () => {
         setAudioUrl(null);
         setMetadataUrl(null);
         setStatus({ message: '', type: 'info' });
-    }, [paragraphIndex, paragraphs, allParagraphsLoaded, loadParagraphs, currentUserEmail, isLoadingParagraphs]);
+    }, [paragraphIndex, availableParagraphs.length, allParagraphsLoaded, loadParagraphs, currentUserEmail, isLoadingParagraphs]);
 
 
     const handleReRecord = useCallback(() => {
@@ -340,7 +368,24 @@ const App: React.FC = () => {
     }, []);
 
     const handleAcceptRecording = (id: string) => {
-        setRecordingsForReview(prev => prev.map(rec => rec.metadata.id === id ? { ...rec, status: 'accepted' } : rec));
+        let acceptedTranscript: string | null = null;
+        setRecordingsForReview(prev => prev.map(rec => {
+            if (rec.metadata.id === id) {
+                acceptedTranscript = rec.metadata.transcript;
+                return { ...rec, status: 'accepted' };
+            }
+            return rec;
+        }));
+
+        if (acceptedTranscript) {
+            setAcceptedTranscripts(prev => {
+                const trimmedTranscript = acceptedTranscript!.trim();
+                if (prev.includes(trimmedTranscript)) {
+                    return prev;
+                }
+                return [...prev, trimmedTranscript];
+            });
+        }
         setStatus({ message: 'recordingAccepted', type: 'success' });
     };
 
@@ -428,7 +473,7 @@ const App: React.FC = () => {
                         />
 
                         <TranscriptDisplay
-                            text={paragraphs[paragraphIndex] || '...'}
+                            text={availableParagraphs[paragraphIndex] || '...'}
                         />
 
                         <Controls
@@ -436,7 +481,7 @@ const App: React.FC = () => {
                             onStart={handleStartRecording}
                             onStop={handleStopRecording}
                             onNext={handleLoadNextParagraph}
-                            disabled={isLoadingParagraphs || paragraphs.length === 0}
+                            disabled={isLoadingParagraphs || availableParagraphs.length === 0}
                         />
 
                         <StatusMessage

@@ -147,6 +147,10 @@ export const translations = {
         ar: "جاري تحميل الفقرات...",
         en: "Loading paragraphs...",
     },
+    statusNoNewParagraphs: {
+        ar: "رائع! لقد قمت بتسجيل جميع الفقرات المتاحة.",
+        en: "Great! You have recorded all available paragraphs."
+    },
     statusReRecord: {
         ar: "الرجاء التسجيل مرة أخرى.",
         en: "Please record again.",
