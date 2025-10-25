@@ -121,7 +121,7 @@ const App: React.FC = () => {
         setStatus({ message: 'statusLoadingParagraphs', type: 'info' });
         
         const username = getUsernameFromEmail(email);
-        const filePath = `${username}-${paragraphFileIndex.current}.json`;
+        const filePath = `/${username}-${paragraphFileIndex.current}.json`;
 
         try {
             const response = await fetch(filePath);
