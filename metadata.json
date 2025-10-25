@@ -1,5 +1,5 @@
 {
-  "name": "Audio Transcription Recording Platform",
+  "name": "Audio Recording Platform",
   "description": "أداة للمشاركين لتسجيل الجمل المكتوبة. يلتقط التطبيق الصوت وينشئ بيانات وصفية ويوفر رابط تنزيل لملف WAV.",
   "requestFramePermissions": [
     "microphone"

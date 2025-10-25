@@ -68,6 +68,7 @@ const App: React.FC = () => {
         setParagraphIndex(0);
         paragraphFileIndex.current = 1;
         setAllParagraphsLoaded(false);
+        setIsLoadingParagraphs(false); // Reset loading state
     };
 
     const handleLogin = (email: string) => {
@@ -120,13 +121,13 @@ const App: React.FC = () => {
         setStatus({ message: 'statusLoadingParagraphs', type: 'info' });
         
         const username = getUsernameFromEmail(email);
-        const filePath = `/${username}-${paragraphFileIndex.current}.json`;
+        const filePath = `${username}-${paragraphFileIndex.current}.json`;
 
         try {
             const response = await fetch(filePath);
             if (response.status === 404) {
                 setAllParagraphsLoaded(true);
-                if (paragraphFileIndex.current === 1) {
+                if (paragraphFileIndex.current === 1 && paragraphs.length === 0) {
                      console.error(`Initial paragraph file not found for user ${username}.`);
                      setStatus({ message: 'statusParagraphsError', type: 'error' });
                 } else {
@@ -147,13 +148,14 @@ const App: React.FC = () => {
         } finally {
             setIsLoadingParagraphs(false);
         }
-    }, [allParagraphsLoaded, isLoadingParagraphs]);
+    }, [allParagraphsLoaded, isLoadingParagraphs, paragraphs.length]);
 
     useEffect(() => {
-        if(currentUserEmail){
+        if(currentUserEmail && paragraphs.length === 0 && !isLoadingParagraphs && !allParagraphsLoaded){
             loadParagraphs(currentUserEmail);
         }
-    }, [currentUserEmail, loadParagraphs]);
+    }, [currentUserEmail, loadParagraphs, paragraphs.length, isLoadingParagraphs, allParagraphsLoaded]);
+
 
     useEffect(() => {
         return () => {
@@ -319,7 +321,7 @@ const App: React.FC = () => {
         }
     
         // Pre-fetch next chunk if we're getting close to the end
-        if (!allParagraphsLoaded && nextIndex >= paragraphs.length - 5) {
+        if (!isLoadingParagraphs && !allParagraphsLoaded && nextIndex >= paragraphs.length - 5) {
             loadParagraphs(currentUserEmail);
         }
     
@@ -327,7 +329,8 @@ const App: React.FC = () => {
         setAudioUrl(null);
         setMetadataUrl(null);
         setStatus({ message: '', type: 'info' });
-    }, [paragraphIndex, paragraphs, allParagraphsLoaded, loadParagraphs, currentUserEmail]);
+    }, [paragraphIndex, paragraphs, allParagraphsLoaded, loadParagraphs, currentUserEmail, isLoadingParagraphs]);
+
 
     const handleReRecord = useCallback(() => {
         setMetadata(null);
