@@ -1,7 +1,9 @@
 
 
+
+
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { SpeakerInfo, RecordingMetadata, ReviewableRecording } from './types';
+import { SpeakerInfo, RecordingMetadata, ReviewableRecording, UserRole } from './types';
 import { convertToWav, blobToDataURL } from './services/audioService';
 import SpeakerForm from './components/SpeakerForm';
 import TranscriptDisplay from './components/TranscriptDisplay';
@@ -10,8 +12,10 @@ import StatusMessage from './components/StatusMessage';
 import MetadataDisplay from './components/MetadataDisplay';
 import Login from './components/Login';
 import ReviewTab from './components/ReviewTab';
+import AdminDashboard from './components/AdminDashboard';
 import { useLanguage } from './contexts/LanguageContext';
 import { useTheme } from './contexts/ThemeContext';
+import { translations } from './i18n/translations';
 
 const SunIcon: React.FC<{className?: string}> = ({className}) => (
     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
@@ -30,6 +34,7 @@ const App: React.FC = () => {
     const { theme, toggleTheme } = useTheme();
 
     const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+    const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(null);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [speakerInfo, setSpeakerInfo] = useState<SpeakerInfo>({
         id: '',
@@ -50,7 +55,7 @@ const App: React.FC = () => {
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [metadataUrl, setMetadataUrl] = useState<string | null>(null);
     const [recordingsCount, setRecordingsCount] = useState(0);
-    const [activeTab, setActiveTab] = useState<'record' | 'review'>('record');
+    const [activeTab, setActiveTab] = useState<'record' | 'review' | 'admin'>('record');
     const [recordingsForReview, setRecordingsForReview] = useState<ReviewableRecording[]>([]);
     const [acceptedTranscripts, setAcceptedTranscripts] = useState<string[]>([]);
 
@@ -78,21 +83,56 @@ const App: React.FC = () => {
     };
 
     const handleLogin = (email: string) => {
-        const allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
-        const userData = allUserData[email] || {
-            recordingsCount: 0,
-            speakerInfo: { id: '', placeOfBirth: '', gender: 'Male', age: '' },
-            recordings: [],
-            acceptedTranscripts: []
-        };
+        let allUserData: any = {};
+        try {
+            allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+        } catch (error) {
+            console.error("Failed to parse user data from localStorage, resetting.", error);
+            localStorage.removeItem('userData');
+        }
+        
+        const isFirstUser = Object.keys(allUserData).length === 0;
+
+        let userData = allUserData[email];
+        let userRole: UserRole;
+
+        if (userData) {
+            userRole = userData.role || 'voice actor';
+        } else {
+            // New user
+            userRole = isFirstUser ? 'admin' : 'voice actor';
+            userData = {
+                role: userRole,
+                recordingsCount: 0,
+                speakerInfo: { id: '', placeOfBirth: '', gender: 'Male', age: '' },
+                recordings: [],
+                acceptedTranscripts: []
+            };
+            allUserData[email] = userData;
+            localStorage.setItem('userData', JSON.stringify(allUserData));
+        }
 
         setRecordingsCount(userData.recordingsCount);
         setSpeakerInfo(userData.speakerInfo);
-        setRecordingsForReview(userData.recordings);
         setAcceptedTranscripts(userData.acceptedTranscripts || []);
         setCurrentUserEmail(email);
+        setCurrentUserRole(userRole);
         localStorage.setItem('currentUserEmail', email);
+
+        if (userRole === 'admin' || userRole === 'reviewer') {
+            const allPendingRecordings: ReviewableRecording[] = [];
+            Object.values(allUserData).forEach((u: any) => {
+                if (u.recordings) {
+                    allPendingRecordings.push(...u.recordings.filter((r: ReviewableRecording) => r.status === 'pending'));
+                }
+            });
+            setRecordingsForReview(allPendingRecordings);
+        } else {
+            setRecordingsForReview([]);
+        }
+
         resetParagraphs();
+        setActiveTab('record');
     };
 
     useEffect(() => {
@@ -105,7 +145,12 @@ const App: React.FC = () => {
 
     useEffect(() => {
         if (currentUserEmail) {
-            const allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+            let allUserData: any = {};
+            try {
+                allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+            } catch (error) {
+                console.error("Failed to parse user data from localStorage.", error);
+            }
             const currentUserData = allUserData[currentUserEmail] || {};
             
             const updatedData = {
@@ -114,14 +159,15 @@ const App: React.FC = () => {
                     ...currentUserData,
                     recordingsCount: recordingsCount,
                     speakerInfo: speakerInfo,
-                    recordings: recordingsForReview,
+                    role: currentUserRole,
                     acceptedTranscripts: acceptedTranscripts
+                    // recordings are now managed by accept/reject/processRecording functions directly
                 }
             };
 
             localStorage.setItem('userData', JSON.stringify(updatedData));
         }
-    }, [recordingsCount, speakerInfo, currentUserEmail, recordingsForReview, acceptedTranscripts]);
+    }, [recordingsCount, speakerInfo, currentUserEmail, acceptedTranscripts, currentUserRole]);
 
     const loadParagraphs = useCallback(async (email: string) => {
         if (allParagraphsLoaded || isLoadingParagraphs) return;
@@ -200,6 +246,7 @@ const App: React.FC = () => {
 
     const handleLogout = () => {
         setCurrentUserEmail(null);
+        setCurrentUserRole(null);
         localStorage.removeItem('currentUserEmail');
         setRecordingsCount(0);
         setSpeakerInfo({ id: '', placeOfBirth: '', gender: 'Male', age: '' });
@@ -224,7 +271,7 @@ const App: React.FC = () => {
     };
     
     const processRecording = async () => {
-        if (audioChunksRef.current.length === 0) return;
+        if (audioChunksRef.current.length === 0 || !currentUserEmail) return;
         
         setStatus({ message: 'statusProcessing', type: 'processing' });
 
@@ -260,10 +307,28 @@ const App: React.FC = () => {
                 const newRecording: ReviewableRecording = {
                     metadata: newMetadata,
                     audioDataUrl: audioDataUrl,
-                    status: 'pending'
+                    status: 'pending',
+                    recorderEmail: currentUserEmail
                 };
                 
-                setRecordingsForReview(prev => [...prev, newRecording]);
+                let allUserData: any = {};
+                try {
+                    allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+                } catch (error) {
+                    console.error("Failed to parse user data from localStorage.", error);
+                }
+
+                const currentUserData = allUserData[currentUserEmail];
+                if (!currentUserData) {
+                     console.error(`Could not find user data for ${currentUserEmail}`);
+                     setStatus({ message: 'statusConversionError', type: 'error' });
+                     return;
+                }
+                
+                currentUserData.recordings.push(newRecording);
+                currentUserData.recordingsCount = (currentUserData.recordingsCount || 0) + 1;
+                localStorage.setItem('userData', JSON.stringify(allUserData));
+                
                 setRecordingsCount(prevCount => prevCount + 1);
 
                 setMetadata(newMetadata);
@@ -367,31 +432,57 @@ const App: React.FC = () => {
         setStatus({ message: 'statusReRecord', type: 'info' });
     }, []);
 
-    const handleAcceptRecording = (id: string) => {
+    const handleAcceptRecording = (id: string, recorderEmail: string) => {
         let acceptedTranscript: string | null = null;
-        setRecordingsForReview(prev => prev.map(rec => {
-            if (rec.metadata.id === id) {
-                acceptedTranscript = rec.metadata.transcript;
-                return { ...rec, status: 'accepted' };
-            }
-            return rec;
-        }));
-
-        if (acceptedTranscript) {
-            setAcceptedTranscripts(prev => {
-                const trimmedTranscript = acceptedTranscript!.trim();
-                if (prev.includes(trimmedTranscript)) {
-                    return prev;
-                }
-                return [...prev, trimmedTranscript];
-            });
+        let allUserData: any = {};
+        try {
+            allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+        } catch (error) {
+            console.error("Failed to parse user data from localStorage.", error);
         }
+        const recorderData = allUserData[recorderEmail];
+
+        if (recorderData) {
+            recorderData.recordings = recorderData.recordings.map((rec: ReviewableRecording) => {
+                if (rec.metadata.id === id) {
+                    acceptedTranscript = rec.metadata.transcript;
+                    return { ...rec, status: 'accepted' };
+                }
+                return rec;
+            });
+            
+            if (acceptedTranscript) {
+                recorderData.acceptedTranscripts = recorderData.acceptedTranscripts || [];
+                const trimmedTranscript = acceptedTranscript.trim();
+                if (!recorderData.acceptedTranscripts.includes(trimmedTranscript)) {
+                    recorderData.acceptedTranscripts.push(trimmedTranscript);
+                }
+            }
+
+            localStorage.setItem('userData', JSON.stringify(allUserData));
+        }
+
+        setRecordingsForReview(prev => prev.filter(rec => rec.metadata.id !== id));
         setStatus({ message: 'recordingAccepted', type: 'success' });
     };
 
-    const handleRejectRecording = (id: string) => {
+    const handleRejectRecording = (id: string, recorderEmail: string) => {
+        let allUserData: any = {};
+        try {
+            allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+        } catch (error) {
+            console.error("Failed to parse user data from localStorage.", error);
+        }
+        const recorderData = allUserData[recorderEmail];
+        if (recorderData) {
+            const initialLength = recorderData.recordings.length;
+            recorderData.recordings = recorderData.recordings.filter((rec: ReviewableRecording) => rec.metadata.id !== id);
+             if (recorderData.recordings.length < initialLength) {
+                recorderData.recordingsCount = (recorderData.recordingsCount || 1) - 1;
+            }
+            localStorage.setItem('userData', JSON.stringify(allUserData));
+        }
         setRecordingsForReview(prev => prev.filter(rec => rec.metadata.id !== id));
-        setRecordingsCount(prev => prev - 1);
         setStatus({ message: 'recordingRejected', type: 'error' });
     };
     
@@ -409,7 +500,9 @@ const App: React.FC = () => {
         return <Login onLogin={handleLogin} />;
     }
     
-    const pendingReviewCount = recordingsForReview.filter(r => r.status === 'pending').length;
+    const pendingReviewCount = recordingsForReview.length;
+    const roleKey = `role${currentUserRole!.charAt(0).toUpperCase() + currentUserRole!.slice(1).replace(' ', '')}` as keyof typeof translations;
+
 
     return (
         <div className="flex items-center justify-center min-h-screen p-4">
@@ -424,8 +517,8 @@ const App: React.FC = () => {
                         </button>
                     </div>
                     <div className="flex items-center gap-4">
-                        <div className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
-                            {t('loggedInAs')} <span className="font-bold text-gray-800 dark:text-gray-200">{currentUserEmail}</span>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block text-right">
+                            {t('loggedInAs')} <span className="font-bold text-gray-800 dark:text-gray-200">{currentUserEmail} ({t(roleKey)})</span>
                         </div>
                         <button
                             onClick={handleLogout}
@@ -448,19 +541,29 @@ const App: React.FC = () => {
                         >
                             {t('recordTab')}
                         </button>
-                        <button
-                            onClick={() => setActiveTab('review')}
-                            className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg relative ${activeTab === 'review' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'}`}
-                        >
-                            {t('reviewTab')}
-                            {pendingReviewCount > 0 && (
-                                <span className="absolute top-3 -right-3 ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">{pendingReviewCount}</span>
-                            )}
-                        </button>
+                        {(currentUserRole === 'admin' || currentUserRole === 'reviewer') && (
+                            <button
+                                onClick={() => setActiveTab('review')}
+                                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg relative ${activeTab === 'review' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'}`}
+                            >
+                                {t('reviewTab')}
+                                {pendingReviewCount > 0 && (
+                                    <span className="absolute top-3 -right-3 ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full">{pendingReviewCount}</span>
+                                )}
+                            </button>
+                        )}
+                        {currentUserRole === 'admin' && (
+                            <button
+                                onClick={() => setActiveTab('admin')}
+                                className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg ${activeTab === 'admin' ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'}`}
+                            >
+                                {t('adminDashboardTab')}
+                            </button>
+                        )}
                     </nav>
                 </div>
                 
-                {activeTab === 'record' ? (
+                {activeTab === 'record' && (
                     <>
                         <p className="text-gray-600 dark:text-gray-400 mb-8 text-center">{t('appDescription')}</p>
                         <div className="mb-8 p-4 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-200 font-bold rounded-2xl text-lg text-center border border-indigo-200 dark:border-indigo-800">
@@ -498,13 +601,17 @@ const App: React.FC = () => {
                             />
                         )}
                     </>
-                ) : (
-                    <ReviewTab
+                )}
+
+                {activeTab === 'review' && (
+                     <ReviewTab
                         recordings={recordingsForReview}
                         onAccept={handleAcceptRecording}
                         onReject={handleRejectRecording}
                     />
                 )}
+
+                {activeTab === 'admin' && <AdminDashboard />}
             </div>
         </div>
     );

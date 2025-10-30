@@ -1,4 +1,7 @@
 
+
+export type UserRole = 'admin' | 'reviewer' | 'voice actor';
+
 export interface SpeakerInfo {
     id: string;
     placeOfBirth: string;
@@ -30,4 +33,5 @@ export interface ReviewableRecording {
     metadata: RecordingMetadata;
     audioDataUrl: string;
     status: 'pending' | 'accepted';
+    recorderEmail: string;
 }

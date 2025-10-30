@@ -1,4 +1,5 @@
 
+
 export const translations = {
     // App.tsx & General
     appTitle: {
@@ -120,8 +121,8 @@ export const translations = {
         en: "Processing file...",
     },
     statusSuccess: {
-        ar: "تم الحفظ بنجاح! يمكنك مراجعة التسجيل في تبويب المراجعة.",
-        en: "Saved successfully! You can review the recording in the Review tab.",
+        ar: "تم الحفظ بنجاح! يمكن للمراجعين الآن رؤية تسجيلك.",
+        en: "Saved successfully! Reviewers can now see your recording.",
     },
     statusAutoStopped: {
         ar: "تم إيقاف التسجيل تلقائيًا بعد 70 ثانية.",
@@ -208,5 +209,66 @@ export const translations = {
     noRecordingsForReview: {
         ar: "لا توجد تسجيلات للمراجعة حاليًا.",
         en: "There are no recordings to review at the moment.",
+    },
+    // Admin Dashboard
+    adminDashboardTab: {
+        ar: "لوحة التحكم",
+        en: "Admin Dashboard",
+    },
+    adminDashboardTitle: {
+        ar: "إدارة المستخدمين",
+        en: "User Management",
+    },
+    userEmail: {
+        ar: "البريد الإلكتروني",
+        en: "User Email",
+    },
+    userRole: {
+        ar: "الدور",
+        en: "Role",
+    },
+    roleAdmin: {
+        ar: "مدير",
+        en: "Admin",
+    },
+    roleReviewer: {
+        ar: "مراجع",
+        en: "Reviewer",
+    },
+    roleVoiceActor: {
+        ar: "ممثل صوتي",
+        en: "Voice Actor",
+    },
+    noUsersFound: {
+        ar: "لم يتم العثور على مستخدمين.",
+        en: "No users found."
+    },
+    addUserSectionTitle: {
+        ar: "إضافة مستخدم جديد",
+        en: "Add New User",
+    },
+    addUserButton: {
+        ar: "إضافة مستخدم",
+        en: "Add User",
+    },
+    emailExistsError: {
+        ar: "هذا البريد الإلكتروني مسجل بالفعل.",
+        en: "This email already exists.",
+    },
+    userAddedSuccess: {
+        ar: "تمت إضافة المستخدم بنجاح.",
+        en: "User added successfully.",
+    },
+    selectRolePrompt: {
+        ar: "اختر دورًا...",
+        en: "Select a role...",
+    },
+    invalidEmailError: {
+        ar: "الرجاء إدخال بريد إلكتروني صالح.",
+        en: "Please enter a valid email.",
+    },
+    roleRequiredError: {
+        ar: "الرجاء اختيار دور للمستخدم.",
+        en: "Please select a role for the user.",
     },
 };
