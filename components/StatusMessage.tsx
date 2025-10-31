@@ -13,10 +13,9 @@ const InfoIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const RecordingIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <div className={`relative flex items-center justify-center ${className}`}>
-        <div className="absolute h-full w-full bg-red-500 rounded-full animate-ping opacity-75"></div>
-        <div className="relative h-3 w-3 bg-red-500 rounded-full"></div>
-    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" className={`text-red-500 ${className}`} viewBox="0 0 20 20" fill="currentColor">
+        <circle cx="10" cy="10" r="8" className="animate-pulse" />
+    </svg>
 );
 
 

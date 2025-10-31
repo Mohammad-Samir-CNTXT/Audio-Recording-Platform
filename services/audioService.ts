@@ -1,6 +1,3 @@
-
-
-
 // Helper function to write a string to a DataView
 const writeString = (view: DataView, offset: number, str: string) => {
     for (let i = 0; i < str.length; i++) {
@@ -17,7 +14,6 @@ const writePCMData = (view: DataView, offset: number, audioData: Float32Array, b
         if (bitDepth === 16) {
             view.setInt16(index, sample * multiplier, true);
         } else if (bitDepth === 8) {
-            // FIX: DataView.setInt8 expects 2 arguments, not 3. The littleEndian parameter is not applicable for a single byte.
             view.setInt8(index, sample * multiplier);
         }
         index += (bitDepth / 8);

@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { SpeakerInfo, RecordingMetadata, ReviewableRecording, UserRole } from './types';
 import { convertToWav, blobToDataURL } from './services/audioService';
@@ -58,6 +54,7 @@ const App: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'record' | 'review' | 'admin'>('record');
     const [recordingsForReview, setRecordingsForReview] = useState<ReviewableRecording[]>([]);
     const [acceptedTranscripts, setAcceptedTranscripts] = useState<string[]>([]);
+    const [skippedTranscripts, setSkippedTranscripts] = useState<string[]>([]);
 
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -66,8 +63,13 @@ const App: React.FC = () => {
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     
     const availableParagraphs = useMemo(() => {
-        return paragraphs.filter(p => !acceptedTranscripts.includes(p.trim()));
-    }, [paragraphs, acceptedTranscripts]);
+        const acceptedSet = new Set(acceptedTranscripts.map(p => p.trim()));
+        const skippedSet = new Set(skippedTranscripts.map(p => p.trim()));
+        return paragraphs.filter(p => {
+            const trimmedP = p.trim();
+            return !acceptedSet.has(trimmedP) && !skippedSet.has(trimmedP);
+        });
+    }, [paragraphs, acceptedTranscripts, skippedTranscripts]);
 
 
     useEffect(() => {
@@ -106,7 +108,8 @@ const App: React.FC = () => {
                 recordingsCount: 0,
                 speakerInfo: { id: '', placeOfBirth: '', gender: 'Male', age: '' },
                 recordings: [],
-                acceptedTranscripts: []
+                acceptedTranscripts: [],
+                skippedTranscripts: []
             };
             allUserData[email] = userData;
             localStorage.setItem('userData', JSON.stringify(allUserData));
@@ -115,6 +118,7 @@ const App: React.FC = () => {
         setRecordingsCount(userData.recordingsCount);
         setSpeakerInfo(userData.speakerInfo);
         setAcceptedTranscripts(userData.acceptedTranscripts || []);
+        setSkippedTranscripts(userData.skippedTranscripts || []);
         setCurrentUserEmail(email);
         setCurrentUserRole(userRole);
         localStorage.setItem('currentUserEmail', email);
@@ -160,14 +164,15 @@ const App: React.FC = () => {
                     recordingsCount: recordingsCount,
                     speakerInfo: speakerInfo,
                     role: currentUserRole,
-                    acceptedTranscripts: acceptedTranscripts
+                    acceptedTranscripts: acceptedTranscripts,
+                    skippedTranscripts: skippedTranscripts
                     // recordings are now managed by accept/reject/processRecording functions directly
                 }
             };
 
             localStorage.setItem('userData', JSON.stringify(updatedData));
         }
-    }, [recordingsCount, speakerInfo, currentUserEmail, acceptedTranscripts, currentUserRole]);
+    }, [recordingsCount, speakerInfo, currentUserEmail, acceptedTranscripts, skippedTranscripts, currentUserRole]);
 
     const loadParagraphs = useCallback(async (email: string) => {
         if (allParagraphsLoaded || isLoadingParagraphs) return;
@@ -225,7 +230,7 @@ const App: React.FC = () => {
     }, [allParagraphsLoaded, availableParagraphs.length]);
 
     useEffect(() => {
-        if (paragraphIndex >= availableParagraphs.length) {
+        if (paragraphIndex >= availableParagraphs.length && availableParagraphs.length > 0) {
             setParagraphIndex(0);
         }
     }, [availableParagraphs.length, paragraphIndex]);
@@ -252,6 +257,7 @@ const App: React.FC = () => {
         setSpeakerInfo({ id: '', placeOfBirth: '', gender: 'Male', age: '' });
         setRecordingsForReview([]);
         setAcceptedTranscripts([]);
+        setSkippedTranscripts([]);
         setMetadata(null);
         setAudioUrl(null);
         setMetadataUrl(null);
@@ -425,6 +431,18 @@ const App: React.FC = () => {
     }, [paragraphIndex, availableParagraphs.length, allParagraphsLoaded, loadParagraphs, currentUserEmail, isLoadingParagraphs]);
 
 
+    const handleSkipParagraph = useCallback(() => {
+        if (!availableParagraphs[paragraphIndex]) return;
+
+        setSkippedTranscripts(prev => [...new Set([...prev, availableParagraphs[paragraphIndex].trim()])]);
+
+        setMetadata(null);
+        setAudioUrl(null);
+        setMetadataUrl(null);
+        setStatus({ message: '', type: 'info' });
+    }, [availableParagraphs, paragraphIndex]);
+
+
     const handleReRecord = useCallback(() => {
         setMetadata(null);
         setAudioUrl(null);
@@ -584,6 +602,7 @@ const App: React.FC = () => {
                             onStart={handleStartRecording}
                             onStop={handleStopRecording}
                             onNext={handleLoadNextParagraph}
+                            onSkip={handleSkipParagraph}
                             disabled={isLoadingParagraphs || availableParagraphs.length === 0}
                         />
 

@@ -1,5 +1,3 @@
-
-
 export const translations = {
     // App.tsx & General
     appTitle: {
@@ -111,14 +109,18 @@ export const translations = {
         ar: "الفقرة التالية",
         en: "Next Paragraph",
     },
+    skipParagraph: {
+        ar: "تخطّي",
+        en: "Skip",
+    },
     // Status Messages
     statusRecording: {
-        ar: "جارٍ التسجيل",
-        en: "Recording...",
+        ar: "التسجيل جاري الآن... تحدث بوضوح.",
+        en: "Recording now... Please speak clearly.",
     },
     statusProcessing: {
-        ar: "جاري معالجة الملف... قد يستغرق هذا بضع لحظات.",
-        en: "Processing file... this might take a moment.",
+        ar: "نقوم بإنهاء ملفك الصوتي، قد يستغرق هذا لحظات. من فضلك لا تغلق الصفحة.",
+        en: "Finalizing your audio, this may take a moment. Please don't close the page.",
     },
     statusSuccess: {
         ar: "تم الحفظ بنجاح! يمكن للمراجعين الآن رؤية تسجيلك.",
@@ -272,7 +274,7 @@ export const translations = {
         en: "Please select a role for the user.",
     },
     remaining: {
-        ar: "يتبقى {seconds} ثانية",
+        ar: "{seconds} ثانية متبقية",
         en: "{seconds}s remaining"
     }
 };

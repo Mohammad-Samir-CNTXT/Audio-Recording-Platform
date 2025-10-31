@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { UserRole } from '../types';
@@ -73,7 +71,8 @@ const AdminDashboard: React.FC = () => {
             recordingsCount: 0,
             speakerInfo: { id: '', placeOfBirth: '', gender: 'Male', age: '' },
             recordings: [],
-            acceptedTranscripts: []
+            acceptedTranscripts: [],
+            skippedTranscripts: []
         };
         localStorage.setItem('userData', JSON.stringify(allUserData));
 
