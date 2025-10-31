@@ -84,6 +84,7 @@ const AdminDashboard: React.FC = () => {
             console.error("Failed to parse user data from localStorage", error);
         }
         const finalEmail = newUserEmail.trim().toLowerCase();
+        const finalRole = finalEmail === 'm.samirwords@gmail.com' ? 'admin' : newUserRole;
 
         if (allUserData[finalEmail]) {
             setFeedback({ messageKey: 'emailExistsError', type: 'error' });
@@ -91,7 +92,7 @@ const AdminDashboard: React.FC = () => {
         }
 
         allUserData[finalEmail] = {
-            role: newUserRole,
+            role: finalRole,
             recordingsCount: 0,
             speakerInfo: { id: '', placeOfBirth: '', gender: 'Male', age: '' },
             recordings: [],
@@ -270,8 +271,8 @@ const AdminDashboard: React.FC = () => {
                                             <select
                                                 value={user.role}
                                                 onChange={(e) => handleRoleChange(user.email, e.target.value as UserRole)}
-                                                className="rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm p-2 focus:border-blue-500 focus:ring-blue-500"
-                                                disabled={user.email === currentUserEmail && users.filter(u => u.role === 'admin').length === 1}
+                                                className="rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm p-2 focus:border-blue-500 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed"
+                                                disabled={user.email === 'm.samirwords@gmail.com' || (user.email === currentUserEmail && users.filter(u => u.role === 'admin').length === 1)}
                                             >
                                                 <option value="admin">{t('roleAdmin')}</option>
                                                 <option value="reviewer">{t('roleReviewer')}</option>

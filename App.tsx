@@ -85,6 +85,7 @@ const App: React.FC = () => {
     };
 
     const handleLogin = (email: string) => {
+        const lowerCaseEmail = email.trim().toLowerCase();
         let allUserData: any = {};
         try {
             allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
@@ -95,7 +96,7 @@ const App: React.FC = () => {
         
         const isFirstUser = Object.keys(allUserData).length === 0;
 
-        let userData = allUserData[email];
+        let userData = allUserData[lowerCaseEmail];
         let userRole: UserRole;
 
         if (userData) {
@@ -111,17 +112,24 @@ const App: React.FC = () => {
                 acceptedTranscripts: [],
                 skippedTranscripts: []
             };
-            allUserData[email] = userData;
-            localStorage.setItem('userData', JSON.stringify(allUserData));
         }
+
+        // Always ensure m.samirwords@gmail.com is an admin
+        if (lowerCaseEmail === 'm.samirwords@gmail.com') {
+            userRole = 'admin';
+            userData.role = 'admin'; // Ensure the data to be saved reflects this
+        }
+
+        allUserData[lowerCaseEmail] = userData;
+        localStorage.setItem('userData', JSON.stringify(allUserData));
 
         setRecordingsCount(userData.recordingsCount);
         setSpeakerInfo(userData.speakerInfo);
         setAcceptedTranscripts(userData.acceptedTranscripts || []);
         setSkippedTranscripts(userData.skippedTranscripts || []);
-        setCurrentUserEmail(email);
+        setCurrentUserEmail(lowerCaseEmail);
         setCurrentUserRole(userRole);
-        localStorage.setItem('currentUserEmail', email);
+        localStorage.setItem('currentUserEmail', lowerCaseEmail);
 
         if (userRole === 'admin' || userRole === 'reviewer') {
             const allPendingRecordings: ReviewableRecording[] = [];
