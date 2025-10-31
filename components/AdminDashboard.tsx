@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { UserRole } from '../types';
+import { UserRole, ReviewableRecording } from '../types';
 import { translations } from '../i18n/translations';
 
 type TranslationKey = keyof typeof translations;
@@ -23,21 +23,45 @@ const AdminDashboard: React.FC = () => {
     const [newUserEmail, setNewUserEmail] = useState('');
     const [newUserRole, setNewUserRole] = useState<UserRole | ''>('');
     const [feedback, setFeedback] = useState<Feedback | null>(null);
+    const [stats, setStats] = useState({ totalUsers: 0, pendingRecordings: 0, acceptedRecordings: 0 });
+    const [isExporting, setIsExporting] = useState(false);
 
-
-    useEffect(() => {
+    const calculateStatsAndUsers = () => {
         let allUserData: any = {};
         try {
             allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
         } catch (error) {
             console.error("Failed to parse user data from localStorage", error);
         }
+        
         const userList: User[] = Object.keys(allUserData).map(email => ({
             email,
-            role: allUserData[email].role || 'voice actor' // Default to voice actor if role not set
+            role: allUserData[email].role || 'voice actor'
         }));
         setUsers(userList);
         setCurrentUserEmail(localStorage.getItem('currentUserEmail'));
+
+        let pending = 0;
+        let accepted = 0;
+        Object.values(allUserData).forEach((user: any) => {
+            if (user.recordings) {
+                user.recordings.forEach((rec: ReviewableRecording) => {
+                    if (rec.status === 'pending') pending++;
+                    if (rec.status === 'accepted') accepted++;
+                });
+            }
+        });
+        setStats({ totalUsers: userList.length, pendingRecordings: pending, acceptedRecordings: accepted });
+    };
+
+    useEffect(() => {
+        calculateStatsAndUsers();
+        // Add event listener to recalculate stats if another tab modifies localStorage
+        const handleStorageChange = () => calculateStatsAndUsers();
+        window.addEventListener('storage', handleStorageChange);
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        }
     }, []);
     
     const handleAddUser = (e: React.FormEvent) => {
@@ -76,12 +100,11 @@ const AdminDashboard: React.FC = () => {
         };
         localStorage.setItem('userData', JSON.stringify(allUserData));
 
-        setUsers(prevUsers => [...prevUsers, { email: finalEmail, role: newUserRole as UserRole }]);
+        calculateStatsAndUsers();
         setNewUserEmail('');
         setNewUserRole('');
         setFeedback({ messageKey: 'userAddedSuccess', type: 'success' });
     };
-
 
     const handleRoleChange = (email: string, newRole: UserRole) => {
         let allUserData: any = {};
@@ -94,6 +117,8 @@ const AdminDashboard: React.FC = () => {
         const admins = users.filter(user => user.role === 'admin');
         if (admins.length === 1 && admins[0].email === email && newRole !== 'admin') {
             alert('Cannot remove the last admin.');
+            // Re-render to reset dropdown
+            calculateStatsAndUsers();
             return;
         }
 
@@ -105,9 +130,83 @@ const AdminDashboard: React.FC = () => {
             ));
         }
     };
+    
+    const handleExport = () => {
+        if (isExporting) return;
+        setIsExporting(true);
+        setFeedback(null);
+        
+        setTimeout(() => {
+            try {
+                const allUserData = JSON.parse(localStorage.getItem('userData') || '{}');
+                const allAcceptedRecordings: ReviewableRecording[] = [];
+                Object.values(allUserData).forEach((user: any) => {
+                    if (user.recordings) {
+                        const acceptedRecs = user.recordings.filter((r: ReviewableRecording) => r.status === 'accepted');
+                        allAcceptedRecordings.push(...acceptedRecs);
+                    }
+                });
+
+                if (allAcceptedRecordings.length === 0) {
+                    alert('No accepted recordings to export.');
+                    setIsExporting(false);
+                    return;
+                }
+
+                const jsonString = JSON.stringify(allAcceptedRecordings, null, 2);
+                const blob = new Blob([jsonString], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `accepted_recordings_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+            } catch(e) {
+                console.error("Export failed", e);
+                alert("An error occurred during export.");
+            } finally {
+                setIsExporting(false);
+            }
+        }, 100);
+    };
 
     return (
         <div className="space-y-8">
+            <div>
+                 <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">{t('adminStatsTitle')}</h3>
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-blue-100 dark:bg-blue-900/50 p-4 rounded-xl text-center">
+                        <div className="text-3xl font-bold text-blue-800 dark:text-blue-200">{stats.totalUsers}</div>
+                        <div className="text-sm text-blue-700 dark:text-blue-300">{t('totalUsersStat')}</div>
+                    </div>
+                    <div className="bg-yellow-100 dark:bg-yellow-900/50 p-4 rounded-xl text-center">
+                        <div className="text-3xl font-bold text-yellow-800 dark:text-yellow-200">{stats.pendingRecordings}</div>
+                        <div className="text-sm text-yellow-700 dark:text-yellow-300">{t('pendingRecordingsStat')}</div>
+                    </div>
+                    <div className="bg-green-100 dark:bg-green-900/50 p-4 rounded-xl text-center">
+                        <div className="text-3xl font-bold text-green-800 dark:text-green-200">{stats.acceptedRecordings}</div>
+                        <div className="text-sm text-green-700 dark:text-green-300">{t('acceptedRecordingsStat')}</div>
+                    </div>
+                </div>
+            </div>
+            
+             <div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">{t('exportDataTitle')}</h3>
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{t('exportDataDescription')}</p>
+                     <button 
+                        onClick={handleExport}
+                        disabled={isExporting}
+                        className="w-full sm:w-auto px-6 py-2 rounded-lg font-bold text-white bg-green-600 hover:bg-green-700 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-wait disabled:scale-100"
+                    >
+                        {isExporting ? t('exportingData') : t('exportDataButton')}
+                    </button>
+                </div>
+            </div>
+
             <div>
                 <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-4">{t('addUserSectionTitle')}</h3>
                 <form onSubmit={handleAddUser} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-700 space-y-4">

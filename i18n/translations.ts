@@ -200,6 +200,10 @@ export const translations = {
         ar: "مراجعة التسجيلات",
         en: "Review Recordings",
     },
+    reviewTabTitleWithCount: {
+        ar: "مراجعة التسجيلات ({count})",
+        en: "Review Recordings ({count})",
+    },
     accept: {
         ar: "قبول",
         en: "Accept",
@@ -276,5 +280,37 @@ export const translations = {
     remaining: {
         ar: "{seconds} ثانية متبقية",
         en: "{seconds}s remaining"
+    },
+    exportDataTitle: {
+        ar: "تصدير البيانات",
+        en: "Export Data",
+    },
+    exportDataDescription: {
+        ar: "تنزيل جميع التسجيلات المقبولة وبياناتها الوصفية في ملف JSON واحد.",
+        en: "Download all accepted recordings and their metadata as a single JSON file.",
+    },
+    exportDataButton: {
+        ar: "تصدير البيانات",
+        en: "Export Data",
+    },
+    adminStatsTitle: {
+        ar: "إحصائيات المشروع",
+        en: "Project Statistics",
+    },
+    totalUsersStat: {
+        ar: "إجمالي المستخدمين",
+        en: "Total Users",
+    },
+    pendingRecordingsStat: {
+        ar: "تسجيلات قيد المراجعة",
+        en: "Pending Recordings",
+    },
+    acceptedRecordingsStat: {
+        ar: "تسجيلات مقبولة",
+        en: "Accepted Recordings",
+    },
+    exportingData: {
+        ar: "جاري التصدير...",
+        en: "Exporting...",
     }
 };

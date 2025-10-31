@@ -33,7 +33,9 @@ const ReviewTab: React.FC<ReviewTabProps> = ({ recordings, onAccept, onReject })
 
     return (
         <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 text-center mb-4">{t('reviewTabTitle')}</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 text-center mb-4">
+                {t('reviewTabTitleWithCount').replace('{count}', pendingRecordings.length.toString())}
+            </h2>
             {pendingRecordings.map((recording) => {
                 const { metadata } = recording;
 
