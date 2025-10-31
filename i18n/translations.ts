@@ -113,12 +113,12 @@ export const translations = {
     },
     // Status Messages
     statusRecording: {
-        ar: "جارٍ التسجيل... (الحد الأقصى 70 ثانية)",
-        en: "Recording... (70 seconds max)",
+        ar: "جارٍ التسجيل",
+        en: "Recording...",
     },
     statusProcessing: {
-        ar: "يتم تحويل الملف...",
-        en: "Processing file...",
+        ar: "جاري معالجة الملف... قد يستغرق هذا بضع لحظات.",
+        en: "Processing file... this might take a moment.",
     },
     statusSuccess: {
         ar: "تم الحفظ بنجاح! يمكن للمراجعين الآن رؤية تسجيلك.",
@@ -271,4 +271,8 @@ export const translations = {
         ar: "الرجاء اختيار دور للمستخدم.",
         en: "Please select a role for the user.",
     },
+    remaining: {
+        ar: "يتبقى {seconds} ثانية",
+        en: "{seconds}s remaining"
+    }
 };
